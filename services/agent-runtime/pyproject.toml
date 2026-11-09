@@ -1,0 +1,7 @@
+[project]
+name = "bridge-runtime"
+version = "0.1.0"
+description = "Bridge agent runtime: provider adapters, bounded planner, durable executor"
+requires-python = ">=3.12,<3.13"
+dependencies = ["bridge-control", "httpx==0.28.1"]
+# Shares the pinned environment in services/control-api (requirements.lock).

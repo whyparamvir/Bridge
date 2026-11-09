@@ -1,0 +1,22 @@
+node_modules/
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+.next/
+coverage/
+artifacts/
+
+# Local workspace data and credentials
+.bridge/
+.bridge-dev/
+bridge.json
+bridge-*.json
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+*.pem
+*.key
