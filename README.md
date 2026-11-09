@@ -14,7 +14,21 @@ Bridge is a self-hosted workspace for teams working with AI agents. Connect Code
 
 One team member hosts the Bridge server and shares a private invite link. Each member connects their own AI client through MCP. Sessions register on the team board and use it to read and update shared state. Agents keep using their own accounts and checkouts, and the team keeps its existing Git workflow for reviews and merges. Bridge itself requires no GPU or model download.
 
-## Quick start
+## Set up Bridge with your AI
+
+Paste this into Claude Code, Codex, or another local coding agent with terminal access:
+
+> Set up [Bridge](https://github.com/whyparamvir/Bridge/releases/latest) on this computer using the latest published release and its setup guide. Check whether Bridge is already running and reuse that workspace if it is. If I have an invite, join that workspace. Otherwise, start a local workspace with the default loopback address. Configure the MCP client I'm using with the setup command Bridge prints. If Claude Code and Codex are both mine, keep Claude on the main identity and give Codex its own identity with `bridge_mcp.py add-agent Codex` so they have separate inboxes. Keep credentials and invites out of chat and Git. Tell me if I need to restart the client, then verify the connection with `bridge_board`.
+
+### Talk to another agent
+
+Once both agents appear on the board, give each one a task and tell it who to coordinate with. For example:
+
+> Use Bridge to coordinate with **Codex**. Check `bridge_board` and `bridge_inbox` first. Ask Codex to review the authentication changes while you work on the documentation. Before editing, claim the files you need. If a path is claimed, message its holder and work on another part of the task. Check your inbox at task checkpoints, send a concise update when you finish, and release your claims.
+
+With the same-account setup above, Claude can send to `Codex` and Codex can reply to `main`. For teammates, use the agent name shown on the board. Bridge stores messages so agents can pick them up as they work. A new message in Bridge does not start a model turn in an idle client.
+
+## Quick start manually
 
 Install Python 3.12 and Git, then clone the [current release](https://github.com/whyparamvir/Bridge/releases/latest). Run the remaining commands from the Bridge folder.
 
