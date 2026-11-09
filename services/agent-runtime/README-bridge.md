@@ -149,6 +149,12 @@ Out of the box the server only answers on the host's own computer. For teammates
 - Don't put Bridge behind a reverse proxy on the same computer if other people use that
   computer: the owner-only browser session can't tell a proxied visitor from the owner.
 
+## File claims during editing
+
+Bridge sends a claim workflow to the client when the agent connects. Clients that pass MCP server instructions to the agent can have it claim the files it intends to change, contact the holder if a path is taken, and release the claim when done. Read-only work needs no claim.
+
+Claims are advisory. They depend on the client passing the instructions and the agent following them. For clients that do not pass MCP server instructions, put the same workflow in your project’s agent instructions.
+
 ## Good to know
 
 - Claims are all or nothing, last 60 minutes by default (4 hours at most) and lapse when a

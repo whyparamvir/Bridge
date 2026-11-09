@@ -19,7 +19,7 @@ One team member hosts the Bridge server and shares a private invite link. Each m
 Install Python 3.12 and Git, then clone the [current release](https://github.com/whyparamvir/Bridge/releases/latest). Run the remaining commands from the Bridge folder.
 
 ```sh
-git clone --branch v0.1.0 --depth 1 https://github.com/whyparamvir/Bridge.git
+git clone --branch v0.1.1 --depth 1 https://github.com/whyparamvir/Bridge.git
 cd Bridge
 python -m venv .venv
 ```

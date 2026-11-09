@@ -13,6 +13,15 @@ log = logging.getLogger("bridge_mcp")
 
 DEFAULT_PROTOCOL = "2025-06-18"
 
+CLAIM_WORKFLOW = (
+    "When working in this Bridge workspace, inspect files freely. Before creating, editing, moving, "
+    "or deleting repository files, call bridge_claim yourself with the specific repository-relative paths "
+    "and a short description of the planned change. Wait for the claim to succeed before writing. "
+    "Claim new paths as the scope changes. If a claim conflicts, message the holder with bridge_message "
+    "and wait or work on unrelated files. If the claim fails for another reason, report it before editing. "
+    "Keep claims while actively editing and call bridge_release for the paths once your edits are done."
+)
+
 
 class Tools(Protocol):
     def specs(self) -> list[dict]: ...
@@ -44,6 +53,7 @@ def _handle(msg: dict, tools: Tools) -> tuple[Any, dict | None]:
             log.exception("could not take a seat on the board")
         return {"protocolVersion": params.get("protocolVersion") or DEFAULT_PROTOCOL,
                 "capabilities": {"tools": {}},
+                "instructions": CLAIM_WORKFLOW,
                 "serverInfo": {"name": "bridge", "version": __version__}}, None
     if method == "ping":
         return {}, None

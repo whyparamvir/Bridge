@@ -33,7 +33,9 @@ SPECS: list[dict] = [
          "post_to_feed": {"type": "boolean", "description": "Also post the text to the team feed."}},
          ["status"])},
     {"name": "bridge_claim",
-     "description": "Claim files or folders (trailing '/') before editing them so teammates' sessions keep off.",
+     "description": ("Call automatically before creating, editing, moving or deleting repository files. "
+                     "Use the smallest set of paths, wait for success before writing, and release them when done. "
+                     "If there is a conflict, coordinate with the holder before touching those paths."),
      "inputSchema": _obj({
          "paths": {**_paths, "description": "Repository-relative paths; a trailing '/' claims a folder."},
          "why": {"type": "string", "minLength": 1, "maxLength": 200, "description": "What you are doing."},
