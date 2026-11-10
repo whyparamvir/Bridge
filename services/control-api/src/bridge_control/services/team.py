@@ -271,11 +271,12 @@ def board(conn: Connection, now: datetime, p: Principal, project_id: UUID) -> Bo
     workspace_id = conn.execute(sa.select(t.projects.c.workspace_id)
                                 .where(t.projects.c.id == project_id)).scalar_one()
     people = []
-    a, s = t.agent_profiles.c, t.agent_seats.c
+    a, s, n = t.agent_profiles.c, t.agent_seats.c, t.agent_numbers.c
     for u in members:
         # The main agent first, then the person's other named agents (their Codex, ...) by age.
         rows = conn.execute(
-            sa.select(a.id, a.name, a.kind).where(
+            sa.select(a.id, a.name, a.kind, n.number)
+            .select_from(t.agent_profiles.join(t.agent_numbers, n.agent_id == a.id)).where(
                 a.workspace_id == workspace_id, a.owner_user_id == u.id,
                 a.kind.in_((AgentKind.personal_orchestrator.value, AgentKind.specialist.value)))
             .order_by(a.created_at, a.id)).all()
@@ -287,7 +288,7 @@ def board(conn: Connection, now: datetime, p: Principal, project_id: UUID) -> Bo
                 sa.select(t.agent_seats).where(s.agent_id == r.id, s.project_id == project_id)
                 .order_by(s.last_seen_at.desc(), s.seat_key)).all()]
             seats.sort(key=lambda x: not x.online)  # stable: online first, newest first within
-            agents.append(BoardAgent(agent_id=r.id, name=r.name, label=local.agent_label(u.display_name, r.name),
+            agents.append(BoardAgent(agent_id=r.id, number=r.number, name=r.name, label=local.agent_label(u.display_name, r.name),
                                      seats=seats))
             every += seats
         every.sort(key=lambda x: (not x.online, -x.last_seen_at.timestamp(), x.seat_key))

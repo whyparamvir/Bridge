@@ -30,6 +30,7 @@ PROXY_HEADERS = ("forwarded", "x-forwarded-for", "x-forwarded-host", "x-real-ip"
 REFUSAL = "Open Bridge on the computer it runs on."
 _AGENT_SUFFIX = "'s agents"
 MAIN_LABEL = "agents"  # the main agent's name is "{person}'s agents"
+MAIN_ADDRESS_LABEL = "main"  # the main agent's address is "<person>/main": no other agent may use it
 MAX_AGENTS_PER_PERSON = 8  # in one workspace, the main agent included
 
 
@@ -109,7 +110,13 @@ def agent_label(person_name: str, agent_name: str) -> str:
     return agent_name
 
 
-def ensure_person_agent(conn: Connection, now: datetime, user_id: UUID, workspace_id: UUID) -> UUID:
+def insert_agent(conn: Connection, **values) -> None:  # noqa: ANN003
+    conn.execute(sa.insert(t.agent_profiles).values(**values))
+    conn.execute(sa.insert(t.agent_numbers).values(agent_id=values["id"]))
+
+
+def ensure_person_agent(conn: Connection, now: datetime, user_id: UUID, workspace_id: UUID,
+                        label: str | None = None) -> UUID:
     """The user's personal orchestrator in this workspace, created if missing."""
     a = t.agent_profiles.c
     existing = conn.execute(sa.select(a.id).where(
@@ -120,10 +127,11 @@ def ensure_person_agent(conn: Connection, now: datetime, user_id: UUID, workspac
         return existing.id
     name = conn.execute(sa.select(t.users.c.display_name).where(t.users.c.id == user_id)).scalar_one()
     aid = new_id()
-    conn.execute(sa.insert(t.agent_profiles).values(
+    insert_agent(conn,
         id=aid, workspace_id=workspace_id, owner_user_id=user_id,
-        kind=AgentKind.personal_orchestrator.value, name=person_agent_name(name),
-        max_delegation_depth=2, skills=[], lead_model_endpoint_id=None, created_at=now))
+        kind=AgentKind.personal_orchestrator.value,
+        name=sibling_agent_name(name, label) if label else person_agent_name(name),
+        max_delegation_depth=2, skills=[], lead_model_endpoint_id=None, created_at=now)
     return aid
 
 
@@ -137,7 +145,8 @@ def rename_person_agents(conn: Connection, user_id: UUID, old_name: str, new_nam
     ).values(name=person_agent_name(new_name)))
     prefix = f"{old_name}'s "
     for row in conn.execute(sa.select(a.id, a.name).where(
-            a.owner_user_id == user_id, a.kind == AgentKind.specialist.value)).all():
+            a.owner_user_id == user_id,
+            a.kind.in_((AgentKind.personal_orchestrator.value, AgentKind.specialist.value)))).all():
         if row.name.startswith(prefix) and len(row.name) > len(prefix):
             conn.execute(sa.update(t.agent_profiles).where(a.id == row.id).values(
                 name=sibling_agent_name(new_name, row.name[len(prefix):])))
@@ -151,7 +160,7 @@ def installation(conn: Connection):  # noqa: ANN201
 
 
 def bootstrap(conn: Connection, now: datetime, settings: Settings, team_name: str = "My team",
-              owner_name: str = "Host") -> sa.Row:
+              owner_name: str = "Host", agent_label: str | None = None) -> sa.Row:
     """Create the team once: owner (no email, no password), workspace, project "Team",
     the project-scope team feed, the owner's agent and the installation row. A second
     or concurrent call returns the existing row and leaves nothing behind."""
@@ -176,7 +185,7 @@ def bootstrap(conn: Connection, now: datetime, settings: Settings, team_name: st
             # The team feed: the project's shared conversation.
             conn.execute(sa.insert(t.conversations).values(id=cid, project_id=pid, scope="project",
                                                            owner_user_id=None, created_at=now))
-            ensure_person_agent(conn, now, uid, wid)
+            ensure_person_agent(conn, now, uid, wid, agent_label)
             conn.execute(sa.insert(t.installation).values(
                 id=1, owner_user_id=uid, workspace_id=wid, project_id=pid,
                 feed_conversation_id=cid, created_at=now))

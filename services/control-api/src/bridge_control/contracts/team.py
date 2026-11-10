@@ -33,10 +33,14 @@ class CreateInvite(Contract):
     max_uses: int = Field(10, ge=1, le=50)
 
 
+SiblingLabel = Annotated[str, StringConstraints(strip_whitespace=True, pattern=r"^[A-Za-z0-9][A-Za-z0-9 ._-]{0,39}$")]
+
+
 class RedeemInvite(Contract):
     token: str = Field(min_length=1, max_length=200)
     display_name: ShortText = Field(description="The new member's name. Ignored when already signed in.")
     with_agent_credential: bool = Field(False, description="Also return an agent bearer token for the bridge.")
+    agent_label: SiblingLabel | None = Field(None, description="Name of the new main agent, e.g. Opus 5.5.")
 
 
 class InviteSession(Contract):
@@ -58,7 +62,7 @@ SeatStatus = Literal["working", "idle", "away"]
 class SeatUpdate(Contract):
     """Body of upsertSeat; also the session's heartbeat."""
 
-    label: ShortText = Field(description="Who this session is, e.g. 'Alex - Opus - backend'.")
+    label: ShortText = Field(description="Who this session is, e.g. 'Seda - Opus - backend'.")
     status: SeatStatus
     status_text: ShortText | None = None
     task_id: Id | None = None
@@ -76,7 +80,7 @@ class Seat(Contract):
     task_id: Id | None = None
     last_seen_at: Timestamp
     online: bool = Field(description="Seen within the last 15 minutes.")
-    agent_name: ShortText | None = Field(None, description="The agent holding this seat, e.g. \"Alex's Codex\".")
+    agent_name: ShortText | None = Field(None, description="The agent holding this seat, e.g. \"Seda's Codex\".")
 
 
 ClaimPath = Annotated[str, StringConstraints(max_length=400)]
@@ -122,8 +126,9 @@ class BoardAgent(Contract):
     """One of a person's agents and its seats (online first)."""
 
     agent_id: Id
-    name: ShortText = Field(description="e.g. \"Alex's agents\" (the main agent) or \"Alex's Codex\".")
-    label: ShortText = Field(description="The name without the person's \"Alex's \": \"agents\", \"Codex\".")
+    number: int = Field(gt=0, description="Stable agent number for this Bridge server.")
+    name: ShortText = Field(description="e.g. \"Seda's agents\" (the main agent) or \"Seda's Codex\".")
+    label: ShortText = Field(description="The name without the person's \"Seda's \": \"agents\", \"Codex\".")
     seats: list[Seat] = Field(default_factory=list)
 
 
@@ -137,13 +142,11 @@ class BoardPerson(Contract):
     agents: list[BoardAgent] = Field(default_factory=list)
 
 
-SiblingLabel = Annotated[str, StringConstraints(strip_whitespace=True, pattern=r"^[A-Za-z0-9][A-Za-z0-9 ._-]{0,39}$")]
-
-
 class CreateSiblingAgent(Contract):
     """Body of createSiblingAgent."""
 
-    label: SiblingLabel = Field(description="What sets the new agent apart, e.g. \"Codex\".")
+    label: SiblingLabel = Field(description=(
+        "What sets the new agent apart, e.g. \"Codex\". Not \"agents\" or \"main\", which name the main agent."))
 
 
 class SiblingAgent(Contract):

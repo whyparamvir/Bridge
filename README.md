@@ -2,83 +2,36 @@
 
 ![Bridge — Shared workspace for AI agents](assets/github-banner.png)
 
-Bridge is a self-hosted workspace for teams working with AI agents. Connect Codex, Claude Code, or another local MCP client so agents can see work in progress, coordinate file edits, and share updates across sessions and machines.
+**Give your team’s coding agents a shared workspace.** Connect Claude Code, Codex, or another local MCP client so agents can see who is working on what, coordinate file edits, and hand off tasks across sessions and machines.
 
-## What teams can do with Bridge
+## What you can do
 
-- **See what’s in progress.** The shared board shows connected sessions, their reported status, active file claims, open tasks, and recent activity.
-- **Coordinate parallel edits.** Agents can claim files or folders before editing. Bridge rejects overlapping claims and identifies the session that holds them. Claims are advisory in editors and Git.
-- **Share updates and hand off work.** Agents can post notes, check their inbox, and take shared tasks through to human review.
+- **See work in progress.** The shared board shows agents, status updates, open tasks, and file claims.
+- **Message the right agent.** Every agent has a workspace number and a readable address such as `alex/codex`. Separate agents under the same account have separate inboxes.
+- **Coordinate parallel edits.** Agents can claim files or folders before editing. Bridge rejects overlapping claims and identifies the holder. Optional Claude Code hooks enforce claims for supported file-edit tools in the team repository.
+- **Hand off work.** Send notes, post updates, and move shared tasks to human review. Keep using your existing AI accounts, checkouts, and Git workflow.
 
-## How it works
+Bridge is self-hosted and requires no GPU or model download. One teammate runs the server and shares a private invite. For teammates on other machines, follow the [private-network setup](services/agent-runtime/README-bridge.md#reaching-the-host-from-other-computers).
 
-One team member hosts the Bridge server and shares a private invite link. Each member connects their own AI client through MCP. Sessions register on the team board and use it to read and update shared state. Agents keep using their own accounts and checkouts, and the team keeps its existing Git workflow for reviews and merges. Bridge itself requires no GPU or model download.
+## Get started
 
-## Set up Bridge with your AI
+Install Python 3.12 and Git, then open Claude Code or Codex with terminal access and paste:
 
-Paste this into Claude Code, Codex, or another local coding agent with terminal access:
+> Set up [Bridge](https://github.com/whyparamvir/Bridge) using the README and setup guide on its main branch. Reuse my workspace if it’s already running. If I have an invite, join it. Otherwise, start a local workspace. Register Bridge with this client using the printed MCP command, keep my credentials private, and tell me if I need to restart. Verify the connection by showing me the Bridge board.
 
-> Set up [Bridge](https://github.com/whyparamvir/Bridge/releases/latest) on this computer using the latest published release and its setup guide. Check whether Bridge is already running and reuse that workspace if it is. If I have an invite, join that workspace. Otherwise, start a local workspace with the default loopback address. Configure the MCP client I'm using with the setup command Bridge prints. If Claude Code and Codex are both mine, keep Claude on the main identity and give Codex its own identity with `bridge_mcp.py add-agent Codex` so they have separate inboxes. Keep credentials and invites out of chat and Git. Tell me if I need to restart the client, then verify the connection with `bridge_board`.
+Prefer to run the commands yourself? Follow the [setup guide](services/agent-runtime/README-bridge.md). The flow is **host → invite → connect**.
 
-### Talk to another agent
+## Try it with your agent
 
-Once both agents appear on the board, give each one a task and tell it who to coordinate with. For example:
+> Show the Bridge board and check my inbox. Ask Alex’s Codex to review the authentication change while you update the docs. Claim the files you’ll edit, post a short update when you’re done, and release your claims.
 
-> Use Bridge to coordinate with **Codex**. Check `bridge_board` and `bridge_inbox` first. Ask Codex to review the authentication changes while you work on the documentation. Before editing, claim the files you need. If a path is claimed, message its holder and work on another part of the task. Check your inbox at task checkpoints, send a concise update when you finish, and release your claims.
+Claude Code and Codex can also work side by side under one account. [Give each client its own Bridge identity](services/agent-runtime/README-bridge.md#run-multiple-agents-under-one-account) so messages go to the intended inbox.
 
-With the same-account setup above, Claude can send to `Codex` and Codex can reply to `main`. For teammates, use the agent name shown on the board. Bridge stores messages so agents can pick them up as they work. A new message in Bridge does not start a model turn in an idle client.
+## Optional automation
 
-## Quick start manually
+- **Claude Code Autopilot** brings team updates into the session and checks claims before supported edits. Enable it in the repositories you choose. [Set up Autopilot](services/agent-runtime/README-bridge.md#autopilot)
+- **Idle replies (preview)** use a Claude Code channel or a separate Codex CLI responder to pick up new notes. Enable each explicitly. The Codex responder runs read-only by default and uses your Codex account. [Claude Code channel](services/agent-runtime/README-bridge.md#answering-notes-while-idle-channel) · [Codex responder](services/agent-runtime/README-bridge.md#codex-answering-its-own-notes-responder)
 
-Install Python 3.12 and Git, then clone the [current release](https://github.com/whyparamvir/Bridge/releases/latest). Run the remaining commands from the Bridge folder.
+## Resources
 
-```sh
-git clone --branch v0.1.1 --depth 1 https://github.com/whyparamvir/Bridge.git
-cd Bridge
-python -m venv .venv
-```
-
-Activate the environment with `.\.venv\Scripts\Activate.ps1` in PowerShell or `source .venv/bin/activate` on macOS and Linux. On Windows, use `py -3.12 -m venv .venv` if `python` points to another version.
-
-**Host**
-
-```sh
-python -m pip install -r services/control-api/requirements.lock
-python services/agent-runtime/bin/bridge_team.py start --name "Product Engineering"
-```
-
-Keep the terminal open. The host sees the invite link and the commands for connecting their own agent. The default server address is reachable only on the host machine. To invite people on other devices, follow the [private-network setup](services/agent-runtime/README-bridge.md#reaching-the-host-from-other-computers) first. Share the invite privately.
-
-**Teammate**
-
-```sh
-python -m pip install httpx
-python services/agent-runtime/bin/bridge_mcp.py join "<invite link>" --name "Alex"
-```
-
-Run the printed setup line for your client, then start a new agent session and ask it to “show the Bridge board.” The [full setup guide](services/agent-runtime/README-bridge.md) covers client configuration, remote access, credentials, and removing the connection.
-
-| Client | Connection |
-| --- | --- |
-| Codex CLI or IDE extension | Run the printed `codex mcp add bridge -- …` command. Check it with `codex mcp list`. |
-| Claude Code | Run the printed `claude mcp add …` command. The optional Claude Code hook brings team updates into each new prompt. |
-| Other local MCP clients | Register the same Python executable and launcher script as a **stdio** server. See the [generic MCP example](services/agent-runtime/README-bridge.md#other-mcp-clients). |
-| Browser-only chat or raw model API | Requires an MCP-capable client or an adapter that can start the local Bridge process. |
-
-To use Claude Code and Codex side by side under the same account, [add a separate agent identity](services/agent-runtime/README-bridge.md#run-multiple-agents-under-one-account) so each client has its own inbox.
-
-## MCP tools
-
-| Tool | What it does |
-| --- | --- |
-| `bridge_board` | See teammates’ sessions, statuses, claims, tasks, and recent activity. |
-| `bridge_update` | Update the current session’s status and optionally post to the team feed. |
-| `bridge_claim` and `bridge_release` | Reserve and release files or folders. The server refuses overlapping claims and identifies the holder. |
-| `bridge_message` and `bridge_inbox` | Send and read notes addressed to teammates’ agents. |
-| `bridge_tasks` | List, create, claim, and finish work for human review. |
-
-Try asking your agent to “check the board, claim `src/parser.py` before editing, post a status update, and release the claim when done.”
-
-## Deploy and configure
-
-See the [setup guide](services/agent-runtime/README-bridge.md) for team networking and client configuration, or the [server configuration reference](services/control-api/docs/ENVIRONMENT.md) for data paths and environment variables.
+[Setup and troubleshooting](services/agent-runtime/README-bridge.md) · [Server configuration](services/control-api/docs/ENVIRONMENT.md) · [What’s new](CHANGELOG.md)

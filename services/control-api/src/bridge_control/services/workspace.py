@@ -334,7 +334,7 @@ def join_workspace(conn: Connection, now: datetime, p: Principal,
 
 
 def redeem_invite(conn: Connection, now: datetime, settings: Settings, token: str, display_name: str,
-                  p: Principal | None, with_agent_credential: bool) -> InviteSession:
+                  p: Principal | None, with_agent_credential: bool, agent_label: str | None = None) -> InviteSession:
     """Redeem an invite link. Signed out: creates a person with only a name (no email,
     no password) and a session. Signed in: joins that person. Either way they become a
     workspace member, an editor of the invite's project (or, on a self-run server, of the
@@ -373,7 +373,7 @@ def redeem_invite(conn: Connection, now: datetime, settings: Settings, token: st
             project_id = inst.project_id
     if project_id is not None and not _ensure_project_editor(conn, now, wid, project_id, uid):
         raise gone
-    agent_id = local.ensure_person_agent(conn, now, uid, wid)
+    agent_id = local.ensure_person_agent(conn, now, uid, wid, agent_label)
     agent_token = None
     if with_agent_credential:
         agent_token = issue_agent_credential(conn, now, Principal(kind="user", user_id=uid),
@@ -530,10 +530,10 @@ def create_agent(conn: Connection, now: datetime, p: Principal, body: A.CreateAg
     require_human(p, "creating agents")
     require_workspace_member(conn, p, body.workspace_id)
     aid = new_id()
-    conn.execute(sa.insert(t.agent_profiles).values(
+    local.insert_agent(conn,
         id=aid, workspace_id=body.workspace_id, owner_user_id=p.user_id, kind=body.kind.value,
         name=body.name, max_delegation_depth=body.max_delegation_depth, skills=body.skills,
-        lead_model_endpoint_id=None, created_at=now))
+        lead_model_endpoint_id=None, created_at=now)
     return agent_contract(conn.execute(sa.select(t.agent_profiles).where(t.agent_profiles.c.id == aid)).one())
 
 
@@ -574,7 +574,7 @@ def create_sibling_agent(conn: Connection, now: datetime, p: Principal, label: s
     reissues that agent's credential: the way back in after losing the key."""
     if p.kind != "agent" or p.agent_id is None:
         raise DomainError(ErrorCode.permission_denied, "Only an agent's bridge can add an agent this way.")
-    if label.casefold() == local.MAIN_LABEL:
+    if label.casefold() in (local.MAIN_LABEL, local.MAIN_ADDRESS_LABEL):
         raise DomainError(ErrorCode.validation_error, "That is your main agent's name. Pick another.")
     a = t.agent_profiles.c
     me_row = conn.execute(sa.select(t.agent_profiles).where(a.id == p.agent_id)).one()
@@ -595,10 +595,10 @@ def create_sibling_agent(conn: Connection, now: datetime, p: Principal, label: s
             raise DomainError(ErrorCode.validation_error,
                               f"You already have {local.MAX_AGENTS_PER_PERSON} agents. Remove one first.")
         aid = new_id()
-        conn.execute(sa.insert(t.agent_profiles).values(
+        local.insert_agent(conn,
             id=aid, workspace_id=me_row.workspace_id, owner_user_id=me_row.owner_user_id,
             kind=AgentKind.specialist.value, name=name, max_delegation_depth=2, skills=[],
-            lead_model_endpoint_id=None, created_at=now))
+            lead_model_endpoint_id=None, created_at=now)
     # Issued for the person who owns both agents, exactly as their own key would be.
     cred = issue_agent_credential(conn, now, Principal(kind="user", user_id=me_row.owner_user_id), aid, ttl)
     return SiblingAgent(agent_id=aid, name=name, label=local.agent_label(person, name), agent_token=cred.token)

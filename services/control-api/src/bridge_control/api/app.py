@@ -262,7 +262,7 @@ def create_app(settings: Settings | None = None, *, clock: Clock | None = None, 
         response.headers["Cache-Control"] = "no-store"
         with tx() as conn:
             return workspace.redeem_invite(conn, ctx.now(), settings, body.token, body.display_name, p,
-                                           body.with_agent_credential)
+                                           body.with_agent_credential, body.agent_label)
 
     @app.post("/v1/workspaces/join", operation_id="joinWorkspace", tags=["workspaces"], **common)
     def join_workspace(p: P, body: A.JoinWorkspace) -> WorkspaceAccess:
@@ -313,7 +313,7 @@ def create_app(settings: Settings | None = None, *, clock: Clock | None = None, 
     @app.post("/v1/agents/me/siblings", operation_id="createSiblingAgent", status_code=201, tags=["team"], **common)
     def create_sibling_agent(p: P, body: CreateSiblingAgent, response: Response) -> SiblingAgent:
         """Self-run team server only. The calling agent adds another named agent for its
-        person, e.g. "Alex's Codex" next to "Alex's agents", with its own key and inbox. Asking
+        person, e.g. "Seda's Codex" next to "Seda's agents", with its own key and inbox. Asking
         again for the same label returns that agent with a new key; at most 8 per person."""
         if not settings.is_local:
             raise DomainError(ErrorCode.not_found, "not found")

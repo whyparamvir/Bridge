@@ -184,6 +184,14 @@ agent_profiles = sa.Table(
     _ts("created_at"),
 )
 
+agent_numbers = sa.Table(
+    "agent_numbers", metadata,
+    sa.Column("number", sa.Integer, primary_key=True),
+    sa.Column("agent_id", sa.Uuid, sa.ForeignKey("agent_profiles.id", ondelete="CASCADE"),
+              nullable=False, unique=True),
+    sqlite_autoincrement=True,
+)
+
 agent_consents = sa.Table(
     "agent_consents", metadata,
     _fk("agent_id", "agent_profiles.id", primary_key=True),

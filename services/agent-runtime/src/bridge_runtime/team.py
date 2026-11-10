@@ -48,7 +48,7 @@ def own_url(bind: str, port: int) -> str:
 
 
 def host_setup(settings, team_name: str | None, host_name: str, *, bridge_path=None,  # noqa: ANN001
-               port: int = 8787, bind: str = "127.0.0.1") -> HostSetup:
+               port: int = 8787, bind: str = "127.0.0.1", agent_label: str | None = None) -> HostSetup:
     """Create the team once, give the host's own computer an agent credential (kept on
     later starts while it still works) and make a fresh invite."""
     import sqlalchemy as sa
@@ -70,7 +70,7 @@ def host_setup(settings, team_name: str | None, host_name: str, *, bridge_path=N
             if inst is None:
                 if not team_name:
                     raise StartError("First start: give your team a name with --name.")
-                inst = local.bootstrap(conn, clock.now(), settings, team_name, host_name)
+                inst = local.bootstrap(conn, clock.now(), settings, team_name, host_name, agent_label)
                 name = team_name
             else:
                 name = conn.execute(sa.select(t.workspaces.c.name).where(
@@ -132,6 +132,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     s = sub.add_parser("start", help="start the team server and print the invite")
     s.add_argument("--name", default=None, help="team name (required the first time)")
     s.add_argument("--host-name", default=None, help="your name (default: your computer user name)")
+    s.add_argument("--agent", help="agent or model name when creating the workspace, e.g. Opus 5.5")
     s.add_argument("--port", type=int, default=8787)
     s.add_argument("--bind", default="127.0.0.1")
     s.add_argument("--private-network", action="store_true")
@@ -172,7 +173,7 @@ def settings_for(args):  # noqa: ANN001, ANN201
 def render(settings, hs: HostSetup, *, loopback_only: bool = False) -> str:  # noqa: ANN001
     import json
 
-    from bridge_mcp.join import codex_add_line, hook_snippet, join_line, launcher, mcp_add_line
+    from bridge_mcp.join import autopilot_advice, codex_add_line, hook_snippet, join_line, launcher, mcp_add_line
 
     lines = [f"Bridge team: {hs.team_name}"]
     if hs.note:
@@ -190,7 +191,7 @@ def render(settings, hs: HostSetup, *, loopback_only: bool = False) -> str:  # n
               "Connect your own Claude Code:",
               f"  {mcp_add_line()}", "",
               "Add this to your Claude Code settings so you see teammates' updates:",
-              json.dumps(hook_snippet(), indent=2), "",
+              json.dumps(hook_snippet(), indent=2), autopilot_advice(), "",
               "Press Ctrl+C to stop."]
     return "\n".join(lines)
 
@@ -204,12 +205,16 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     os.environ["BRIDGE_ENV"] = "local"
     from bridge_control.settings import ConfigError
+    from bridge_mcp.join import LABEL
 
     try:
+        agent_label = args.agent.strip() if args.agent else None
+        if agent_label is not None and not LABEL.fullmatch(agent_label):
+            raise StartError("--agent must be a short name of up to 40 characters")
         settings = settings_for(args)
         prepare(settings)
         host_name = args.host_name or os.environ.get("USERNAME") or os.environ.get("USER") or "Host"
-        hs = host_setup(settings, args.name, host_name, port=args.port, bind=args.bind)
+        hs = host_setup(settings, args.name, host_name, port=args.port, bind=args.bind, agent_label=agent_label)
     except (ConfigError, StartError) as e:
         print(str(e), file=sys.stderr)
         return 2

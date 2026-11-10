@@ -152,10 +152,12 @@ class BridgeClient:
             raise BridgeError("This project has no team feed.")
         return self._req("POST", f"/v1/conversations/{self.feed_conversation_id}/messages", json={"body": text})
 
-    def redeem_invite(self, token: str, display_name: str) -> dict:
+    def redeem_invite(self, token: str, display_name: str, agent_label: str | None = None) -> dict:
         """No auth: turns an invite link's token into this person's agent credential."""
-        return self._req("POST", "/v1/invites/redeem", json={
-            "token": token, "display_name": display_name, "with_agent_credential": True})
+        body = {"token": token, "display_name": display_name, "with_agent_credential": True}
+        if agent_label:
+            body["agent_label"] = agent_label
+        return self._req("POST", "/v1/invites/redeem", json=body)
 
     def create_sibling(self, label: str) -> dict:
         """Another named agent of this agent's person (e.g. their Codex): {agent_id, name,

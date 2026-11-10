@@ -173,7 +173,7 @@ def _ts(s: str) -> datetime:
 
 
 def _lines(board: dict, events: list[dict], me: str, seen: set[str], notes: dict[str, str]) -> list[str]:
-    # A main agent is named by its person ("Alex"), any other agent by its name ("Alex's Codex").
+    # A main agent is named by its person ("Seda"), any other agent by its name ("Seda's Codex").
     # Only this agent's own events are skipped: the same person's other agents show.
     agents = board_names(board)
     users = {p["user_id"]: p["name"] for p in board.get("people") or []}

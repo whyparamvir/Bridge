@@ -72,6 +72,13 @@ def hook_snippet(cfg_path: str | os.PathLike | None = None) -> dict:
     return {"hooks": {"UserPromptSubmit": [{"hooks": [{"type": "command", "command": bridge_command(sub)}]}]}}
 
 
+def autopilot_advice() -> str:
+    """Pointer to the repo-scoped hooks; the plain snippet is for setups without autopilot."""
+    return (f"Recommended for Claude Code: in your team's repository run {bridge_command('autopilot --write')} "
+            "to install all Bridge hooks for that repository. The snippet above is the simpler option "
+            "(updates on every prompt, in every folder).")
+
+
 LABEL = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._-]{0,39}$")
 
 
@@ -83,7 +90,7 @@ def label_slug(label: str) -> str:
 def add_agent(label: str, source: str | None, target: str | None, *, env: Mapping[str, str] | None,
               transport: httpx.BaseTransport | None, out: TextIO, err: TextIO) -> int:
     """`add-agent LABEL`: from this person's bridge config, ask Bridge for another named agent
-    ("Alex's Codex"), save its own config and print how to plug it into Claude Code or Codex."""
+    ("Seda's Codex"), save its own config and print how to plug it into Claude Code or Codex."""
     label = label.strip()
     if not LABEL.match(label):
         print("Use a short name: letters, digits, spaces, '.', '_' or '-', up to 40 characters.", file=err)
@@ -123,7 +130,8 @@ def add_agent(label: str, source: str | None, target: str | None, *, env: Mappin
 
 
 def run(link: str, name: str, label: str, path: str | None, *, env: Mapping[str, str] | None,
-        transport: httpx.BaseTransport | None, out: TextIO, err: TextIO) -> int:
+        transport: httpx.BaseTransport | None, out: TextIO, err: TextIO,
+        agent_label: str | None = None) -> int:
     try:
         url, token = parse_invite(link)
     except ValueError as e:
@@ -131,7 +139,7 @@ def run(link: str, name: str, label: str, path: str | None, *, env: Mapping[str,
         return 1
     client = BridgeClient(config.BridgeConfig(url=url, token="", project_id=""), transport=transport)
     try:
-        s = client.redeem_invite(token, name)
+        s = client.redeem_invite(token, name, agent_label)
     except BridgeOffline as e:
         print(f"Can't reach Bridge at {e.host}. Check the link and your connection.", file=err)
         return 1
@@ -150,4 +158,5 @@ def run(link: str, name: str, label: str, path: str | None, *, env: Mapping[str,
     print(mcp_add_line(), file=out)
     print(codex_add_line(), file=out)
     print(json.dumps(hook_snippet(), indent=2), file=out)
+    print(autopilot_advice(), file=out)
     return 0

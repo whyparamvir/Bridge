@@ -1,5 +1,5 @@
 """HTTP request/response bodies. Routes live in bridge_control.api; OpenAPI is generated
-from those routes plus these models."""
+from those routes plus these models (contract-proposal/v1/openapi.json)."""
 
 from __future__ import annotations
 

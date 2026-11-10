@@ -45,12 +45,14 @@ SPECS: list[dict] = [
      "description": "Release this session's claims on the given paths, or on all of them when no paths are given.",
      "inputSchema": _obj({"paths": _paths})},
     {"name": "bridge_message",
-     "description": ("Send a note to another agent: a teammate by name (\"Alex\"), one of their agents "
-                     "(\"Alex's Codex\"), one of your own other agents by its label (\"Codex\", or \"main\" "
+     "description": ("Send a note by agent number (#12), by address (\"seda/main\", \"seda/codex\", as the "
+                     "board shows them), a teammate by name (\"Seda\"), one of their agents "
+                     "(\"Seda's Codex\"), one of your own other agents by its label (\"Codex\", or \"main\" "
                      "for your main agent), or an agent id."),
      "inputSchema": _obj({
          "to": {"type": "string", "minLength": 1, "description": (
-             "A person's name, an agent's name, one of your agents' labels, \"main\" or an agent id.")},
+             "An agent number (#12), an address (\"seda/codex\"), a person's name, an agent's name, one of your agents' labels, "
+             "\"main\" or an agent id.")},
          "text": {"type": "string", "minLength": 1, "maxLength": 4000}},
          ["to", "text"])},
     {"name": "bridge_inbox",
@@ -198,7 +200,7 @@ class ToolSet:
                 lines.append(f"- {p['name']} — no agent yet")
                 continue
             lines.append(f"- {p['name']} — " + " · ".join(
-                f"{a['name']}: {self._seats_text(a.get('seats') or [])}" for a in agents))
+                f"{address(p, a)} ({a['name']}){number_tag(a)}: {self._seats_text(a.get('seats') or [])}" for a in agents))
         claims = b["claims"]
         lines.append(f"Claims ({len(claims)}):" if claims else "Claims: none")
         for c in claims[:12]:
@@ -276,12 +278,15 @@ class ToolSet:
         people = self.client.board()["people"]
         matches = resolve(people, self.agent_id(), to)
         if not matches:
+            addresses = ", ".join(address(p, a) for p in people for a in person_agents(p)) or "none"
+            if "/" in to:
+                return _result(f"No agent at {to}. Addresses: {addresses}.", True)
             names = ", ".join(p["name"] for p in people) or "nobody"
-            return _result(f"No one named {to} on the board. People: {names}.", True)
+            return _result(f"No one named {to} on the board. People: {names}. Addresses: {addresses}.", True)
         if len(matches) > 1:
-            listed = "; ".join(f"{a['name'] if a else p['name']} (agent {a['agent_id'] if a else 'none'})"
-                               for p, a in matches)
-            return _result(f"{len(matches)} agents match {to}: {listed}. Send to an agent id instead.", True)
+            listed = "; ".join(f"{address(p, a)} ({a['name']}{number_tag(a)}, agent {a['agent_id']})" if a
+                               else f"{p['name']} (agent none)" for p, a in matches)
+            return _result(f"{len(matches)} agents match {to}: {listed}. Send to an agent number or ID instead.", True)
         person, agent = matches[0]
         if agent is None:
             return _result(f"{person['name']} has no agent yet.", True)
@@ -294,14 +299,17 @@ class ToolSet:
         items, complete = self.client.inbox_all()
         if not items:
             return _result("Inbox is empty.")
-        names = _names(self.client.board())
+        board = self.client.board()
+        names = board_senders(board)
+        numbers = {str(a["agent_id"]): number_tag(a) for p in board["people"] for a in person_agents(p)}
         shown = items[-20:]  # the inbox comes oldest first: these are the newest
         count = f"{len(items)}" if complete else f"More than {len(items)}"
         lines = [f"{count} message{'' if len(items) == 1 else 's'}"
                  + (f", showing the newest {len(shown)}:" if len(shown) < len(items) else ":")]
         for m in shown:
             sender = names.get(m["sender_agent_id"], f"agent {m['sender_agent_id']}")
-            lines.append(f"- {hhmm(m['created_at'])} {sender}: {_payload_text(m)}")
+            tag = numbers.get(str(m["sender_agent_id"]), "")
+            lines.append(f"- {hhmm(m['created_at'])}{tag} {sender}: {_payload_text(m)}")
         return _result("\n".join(lines))
 
     def _tasks(self, args: dict) -> dict:
@@ -363,25 +371,44 @@ def person_agents(person: dict) -> list[dict]:
              "seats": person.get("seats") or []}]
 
 
+def number_tag(agent: dict) -> str:
+    number = agent.get("number")
+    return f" [#{number}]" if number is not None else ""
+
+
 def _is_main(person: dict, agent: dict) -> bool:
     return str(agent["agent_id"]) == str(person.get("agent_id") or "")
 
 
 def agent_display(person: dict, agent: dict) -> str:
     """How an agent is named in replies, the inbox and the hook: a main agent by its person's
-    name ("Alex"), any other agent by its own name ("Alex's Codex")."""
-    return person["name"] if _is_main(person, agent) else agent["name"]
+    name ("Seda"), any other agent by its own name ("Seda's Codex")."""
+    return person["name"] if _is_main(person, agent) and agent["label"] == "agents" else agent["name"]
+
+
+def _slug(text: str) -> str:
+    """"Mo Li" -> "mo-li": lowercased, each run of spaces a "-"."""
+    return "-".join(text.casefold().split())
+
+
+def address(person: dict, agent: dict) -> str:
+    """An agent's address, "<person>/<label>": "seda/main" for Seda's main agent, "seda/codex"
+    for Seda's Codex, "mo-li/my-codex-2" for Mo Li's "My Codex 2"."""
+    return f"{_slug(person['name'])}/{'main' if _is_main(person, agent) else _slug(agent['label'])}"
 
 
 def resolve(people: list[dict], me: str, to: str) -> list[tuple[dict, dict | None]]:
     """The (person, agent) pairs `to` names, by the first rule that matches anything: an
-    agent id; an agent's exact name; "<person> <label>" or "<person>'s <label>"; the label of
+    agent number (#N); address ("seda/codex", see address); an agent id; an agent's exact name; "<person> <label>" or "<person>'s <label>"; the label of
     one of my person's agents ("main" or "agents" = my main agent); a person's name (their
     main agent, None when they have none); the label of someone else's agent. All
     case-insensitive. More than one pair means `to` is ambiguous."""
     key = to.casefold()
     pairs = [(p, a) for p in people for a in person_agents(p)]
+    if key.startswith("#"):
+        return [(p, a) for p, a in pairs if str(a.get("number")) == key[1:]]
     rules = (
+        lambda p, a: "/" in key and address(p, a) == key,
         lambda p, a: str(a["agent_id"]).casefold() == key,
         lambda p, a: a["name"].casefold() == key,
         lambda p, a: key in (f"{p['name']} {a['label']}".casefold(), f"{p['name']}'s {a['label']}".casefold()),
@@ -414,6 +441,13 @@ def board_names(board: dict) -> dict[str, str]:
 
 
 _names = board_names
+
+
+def board_senders(board: dict) -> dict[str, str]:
+    """Agent ids to how the inbox shows a sender: its address and name, "seda/codex (Seda's
+    Codex)", so a reply can go straight to the address."""
+    return {str(a["agent_id"]): f"{address(p, a)} ({agent_display(p, a)})"
+            for p in board.get("people") or [] for a in person_agents(p)}
 
 
 def _payload_text(m: dict) -> str:
