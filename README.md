@@ -35,3 +35,7 @@ Claude Code and Codex can also work side by side under one account. [Give each c
 ## Resources
 
 [Setup and troubleshooting](services/agent-runtime/README-bridge.md) · [Server configuration](services/control-api/docs/ENVIRONMENT.md) · [What’s new](CHANGELOG.md)
+
+## License
+
+Bridge is available under the [MIT License](LICENSE).
